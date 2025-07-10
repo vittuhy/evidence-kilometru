@@ -33,7 +33,6 @@ const KilometersTracker: React.FC = () => {
 
   // Konstanty pro leasing
   const LEASE_START = '2025-07-08';
-  const LEASE_END = '2027-07-08';
   const TOTAL_ALLOWED_KM = 40000; // 20,000 km/rok * 2 roky
   const TOLERANCE_KM = 3000; // Tolerovaný nadlimit
   const TOTAL_WITH_TOLERANCE = TOTAL_ALLOWED_KM + TOLERANCE_KM; // 43,000 km
