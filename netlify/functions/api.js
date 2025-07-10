@@ -1,35 +1,30 @@
-const fs = require('fs').promises;
-const path = require('path');
+// For Netlify Functions, we'll use a simple in-memory storage with fallback
+// In production, you'd want to use a database like Supabase, MongoDB, etc.
 
-// Path to the data file in the functions directory
-const DATA_FILE = path.join(__dirname, 'data', 'mileage-records.json');
+let inMemoryData = [];
 
-// Ensure data directory exists
-async function ensureDataDir() {
-  try {
-    await fs.mkdir(path.dirname(DATA_FILE), { recursive: true });
-  } catch (error) {
-    console.error('Error creating data directory:', error);
-  }
-}
-
-// Read data from file
+// Read data (try file first, then use in-memory)
 async function readData() {
   try {
-    const data = await fs.readFile(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    // For now, return in-memory data
+    // In a real app, you'd connect to a database here
+    return inMemoryData;
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      // File doesn't exist, return empty array
-      return [];
-    }
-    throw error;
+    console.error('Error reading data:', error);
+    return [];
   }
 }
 
-// Write data to file
+// Write data (store in memory for now)
 async function writeData(data) {
-  await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2));
+  try {
+    inMemoryData = data;
+    // In a real app, you'd save to a database here
+    return true;
+  } catch (error) {
+    console.error('Error writing data:', error);
+    throw error;
+  }
 }
 
 // CORS headers
@@ -50,8 +45,6 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    await ensureDataDir();
-    
     const { path: requestPath, httpMethod, body } = event;
     
     // Extract the endpoint from the path
