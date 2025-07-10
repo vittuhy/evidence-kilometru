@@ -28,6 +28,12 @@ class ApiService {
       ...options,
     });
 
+    // Special handling for DELETE 204 No Content
+    if (options?.method === 'DELETE' && response.status === 204) {
+      // @ts-expect-error: void return
+      return;
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
