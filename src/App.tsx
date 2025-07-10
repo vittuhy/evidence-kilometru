@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Car, Plus, Edit2, Trash2, Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-
-interface MileageRecord {
-  id: number;
-  date: string;
-  totalKm: number;
-  createdAt: string;
-}
+import { apiService, MileageRecord } from './api';
 
 interface FormData {
   date: string;
@@ -38,23 +32,29 @@ const KilometersTracker: React.FC = () => {
   const TOTAL_WITH_TOLERANCE = TOTAL_ALLOWED_KM + TOLERANCE_KM; // 43,000 km
   const DAILY_ALLOWED_KM = 54.8; // 20,000 / 365
 
-  // Načtení dat z localStorage při spuštění
+  // Načtení dat ze serveru při spuštění
   useEffect(() => {
-    const savedRecords = localStorage.getItem('mileageRecords');
-    if (savedRecords) {
+    const loadRecords = async () => {
       try {
-        const parsed = JSON.parse(savedRecords);
-        setRecords(parsed);
+        const records = await apiService.getRecords();
+        setRecords(records);
       } catch (error) {
-        console.error('Error parsing saved records:', error);
+        console.error('Error loading records:', error);
+        // Fallback to localStorage if server is not available
+        const savedRecords = localStorage.getItem('mileageRecords');
+        if (savedRecords) {
+          try {
+            const parsed = JSON.parse(savedRecords);
+            setRecords(parsed);
+          } catch (localError) {
+            console.error('Error parsing saved records:', localError);
+          }
+        }
       }
-    }
-  }, []);
+    };
 
-  // Uložení dat do localStorage při změně
-  useEffect(() => {
-    localStorage.setItem('mileageRecords', JSON.stringify(records));
-  }, [records]);
+    loadRecords();
+  }, []);
 
   // Výpočet statistik
   const calculateStats = (): Stats | null => {
@@ -86,25 +86,33 @@ const KilometersTracker: React.FC = () => {
 
   const stats = calculateStats();
 
-  const handleSubmit = (): void => {
+  const handleSubmit = async (): Promise<void> => {
     if (!formData.date || !formData.totalKm) return;
 
-    const newRecord: MileageRecord = {
-      id: editingRecord?.id || Date.now(),
-      date: formData.date,
-      totalKm: parseInt(formData.totalKm),
-      createdAt: editingRecord?.createdAt || new Date().toISOString()
-    };
+    try {
+      if (editingRecord) {
+        // Update existing record
+        const updatedRecord = await apiService.updateRecord(editingRecord.id, {
+          date: formData.date,
+          totalKm: parseInt(formData.totalKm)
+        });
+        setRecords(records.map(r => r.id === editingRecord.id ? updatedRecord : r));
+      } else {
+        // Create new record
+        const newRecord = await apiService.createRecord({
+          date: formData.date,
+          totalKm: parseInt(formData.totalKm)
+        });
+        setRecords([...records, newRecord]);
+      }
 
-    if (editingRecord) {
-      setRecords(records.map(r => r.id === editingRecord.id ? newRecord : r));
-    } else {
-      setRecords([...records, newRecord]);
+      setFormData({ date: '', totalKm: '' });
+      setShowAddForm(false);
+      setEditingRecord(null);
+    } catch (error) {
+      console.error('Error saving record:', error);
+      alert('Chyba při ukládání záznamu. Zkuste to znovu.');
     }
-
-    setFormData({ date: '', totalKm: '' });
-    setShowAddForm(false);
-    setEditingRecord(null);
   };
 
   const handleEdit = (record: MileageRecord): void => {
@@ -116,9 +124,15 @@ const KilometersTracker: React.FC = () => {
     setShowAddForm(true);
   };
 
-  const handleDelete = (id: number): void => {
+  const handleDelete = async (id: number): Promise<void> => {
     if (window.confirm('Opravdu chcete smazat tento záznam?')) {
-      setRecords(records.filter(r => r.id !== id));
+      try {
+        await apiService.deleteRecord(id);
+        setRecords(records.filter(r => r.id !== id));
+      } catch (error) {
+        console.error('Error deleting record:', error);
+        alert('Chyba při mazání záznamu. Zkuste to znovu.');
+      }
     }
   };
 
