@@ -266,7 +266,7 @@ const KilometersTracker: React.FC = () => {
             <div className="flex items-center gap-3">
               <img src={require('./toyota.png')} alt="Toyota logo" className="h-8 w-auto object-contain" style={{marginRight: '0.5rem'}} />
               <div>
-                <h1 className="text-xl font-bold">Evidence kilometrů</h1>
+                <h1 className="text-xl font-bold">Evidence km</h1>
                 <p className="text-gray-400 text-sm">Operativní leasing</p>
               </div>
             </div>
