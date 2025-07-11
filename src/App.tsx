@@ -37,6 +37,7 @@ const KilometersTracker: React.FC = () => {
 
   // Konstanty pro leasing
   const LEASE_START = '2025-07-08';
+  const leaseStartDate = new Date(LEASE_START);
   const TOTAL_ALLOWED_KM = 40000; // 20,000 km/rok * 2 roky
   const TOLERANCE_KM = 3000; // Tolerovaný nadlimit
   const TOTAL_WITH_TOLERANCE = TOTAL_ALLOWED_KM + TOLERANCE_KM; // 43,000 km
@@ -75,8 +76,7 @@ const KilometersTracker: React.FC = () => {
     const currentKm = latestRecord?.totalKm || 0;
     
     const today = new Date();
-    const leaseStart = new Date(LEASE_START);
-    const daysSinceStart = Math.ceil((today.getTime() - leaseStart.getTime()) / (1000 * 60 * 60 * 24));
+    const daysSinceStart = Math.ceil((today.getTime() - leaseStartDate.getTime()) / (1000 * 60 * 60 * 24));
     
     const expectedKm = daysSinceStart * DAILY_ALLOWED_KM;
     const difference = expectedKm - currentKm;
@@ -96,21 +96,39 @@ const KilometersTracker: React.FC = () => {
 
   const stats = calculateStats();
 
-  // Výpočet měsíčních nájezdů
-  const leaseStartDate = new Date(LEASE_START);
-  const today = new Date();
-  const months: { key: string; name: string; start: Date; end: Date }[] = [];
-  let d = new Date(leaseStartDate.getFullYear(), leaseStartDate.getMonth(), 1);
-  while (d <= today) {
-    const start = new Date(d);
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    months.push({
-      key: getMonthKey(start),
-      name: getMonthNameCz(start),
-      start,
-      end,
-    });
-    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  // Najdi poslední záznam a jeho datum
+  const sortedByDate = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const firstRecord = sortedByDate[0];
+  const lastRecord = sortedByDate[sortedByDate.length - 1];
+  const lastRecordDate = lastRecord ? new Date(lastRecord.date) : null;
+
+  // Výpočet dnů od začátku leasingu do posledního záznamu
+  const daysElapsedFromStart = lastRecordDate ? Math.ceil((lastRecordDate.getTime() - leaseStartDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+  // Průměr/den podle posledního záznamu
+  const avgKmPerDay = (lastRecord && daysElapsedFromStart > 0) ? Math.round((lastRecord.totalKm / daysElapsedFromStart) * 10) / 10 : null;
+
+  // Celkový odhad podle posledního záznamu
+  const totalProjection = (lastRecord && daysElapsedFromStart > 0)
+    ? Math.round((lastRecord.totalKm / daysElapsedFromStart) * 730)
+    : null;
+
+  // Měsíce od začátku leasingu do posledního záznamu
+  const months = [];
+  if (lastRecordDate) {
+    let d = new Date(leaseStartDate.getFullYear(), leaseStartDate.getMonth(), 1);
+    const end = new Date(lastRecordDate.getFullYear(), lastRecordDate.getMonth(), 1);
+    while (d <= end) {
+      const start = new Date(d);
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      months.push({
+        key: getMonthKey(start),
+        name: getMonthNameCz(start),
+        start,
+        end: monthEnd,
+      });
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
   }
 
   // Pro každý měsíc najdi první a poslední záznam a spočítej rozdíl
@@ -128,19 +146,6 @@ const KilometersTracker: React.FC = () => {
     const diff = km - MONTHLY_LIMIT;
     return { ...month, km, diff, over: diff > 0, first, last };
   });
-
-  // Celkový odhad
-  let totalProjection = null;
-  if (records.length > 0) {
-    const sorted = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const first = sorted[0];
-    const last = sorted[sorted.length - 1];
-    const daysElapsed = Math.ceil((new Date(last.date).getTime() - new Date(first.date).getTime()) / (1000 * 60 * 60 * 24));
-    if (daysElapsed > 0) {
-      const pace = (last.totalKm - first.totalKm) / daysElapsed;
-      totalProjection = Math.round(pace * 730 + Number(first.totalKm));
-    }
-  }
 
   const handleSubmit = async (): Promise<void> => {
     if (!formData.date || !formData.totalKm) return;
@@ -264,7 +269,7 @@ const KilometersTracker: React.FC = () => {
               
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm">Průměr/den:</span>
-                <span className="font-semibold">{stats.avgKmPerDay} km</span>
+                <span className="font-semibold">{avgKmPerDay !== null ? `${avgKmPerDay} km` : 'N/A'}</span>
               </div>
               
               <div className="flex items-center justify-between">
