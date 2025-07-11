@@ -81,17 +81,34 @@ const KilometersTracker: React.FC = () => {
     const loadRecords = async () => {
       try {
         const records = await apiService.getRecords();
-        setRecords(records);
+        if (records.length === 0 && window.location.hostname === 'localhost') {
+          const demoRecords = [
+            { id: 1, date: '2025-07-11', totalKm: 100, createdAt: '2025-07-11T10:00:00Z' },
+            { id: 2, date: '2025-07-31', totalKm: 300, createdAt: '2025-07-31T10:00:00Z' },
+            { id: 3, date: '2025-08-15', totalKm: 600, createdAt: '2025-08-15T10:00:00Z' }
+          ];
+          setRecords(demoRecords);
+        } else {
+          setRecords(records);
+        }
       } catch (error) {
-        console.error('Error loading records:', error);
-        // Fallback to localStorage if server is not available
-        const savedRecords = localStorage.getItem('mileageRecords');
-        if (savedRecords) {
-          try {
-            const parsed = JSON.parse(savedRecords);
-            setRecords(parsed);
-          } catch (localError) {
-            console.error('Error parsing saved records:', localError);
+        if (window.location.hostname === 'localhost') {
+          const demoRecords = [
+            { id: 1, date: '2025-07-11', totalKm: 100, createdAt: '2025-07-11T10:00:00Z' },
+            { id: 2, date: '2025-07-31', totalKm: 300, createdAt: '2025-07-31T10:00:00Z' },
+            { id: 3, date: '2025-08-15', totalKm: 600, createdAt: '2025-08-15T10:00:00Z' }
+          ];
+          setRecords(demoRecords);
+        } else {
+          // Fallback to localStorage if server is not available and not localhost
+          const savedRecords = localStorage.getItem('mileageRecords');
+          if (savedRecords) {
+            try {
+              const parsed = JSON.parse(savedRecords);
+              setRecords(parsed);
+            } catch (localError) {
+              console.error('Error parsing saved records:', localError);
+            }
           }
         }
       }
@@ -236,6 +253,13 @@ const KilometersTracker: React.FC = () => {
   };
 
   const sortedRecords = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const today = new Date();
+  const LEASE_END = '2027-07-08';
+  const leaseEndDate = new Date(LEASE_END);
+  const totalLeaseDays = Math.ceil((leaseEndDate.getTime() - leaseStartDate.getTime()) / (1000 * 60 * 60 * 24));
+  const daysElapsed = Math.ceil((today.getTime() - leaseStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const leaseProgressPercent = Math.min(100, Math.round((daysElapsed / totalLeaseDays) * 100));
 
   if (!isLoggedIn) {
     return (
@@ -405,6 +429,19 @@ const KilometersTracker: React.FC = () => {
                     stats.currentKm <= TOTAL_WITH_TOLERANCE ? 'bg-yellow-500' : 'bg-red-500'
                   }`}
                   style={{ width: `${Math.min((stats.currentKm / TOTAL_WITH_TOLERANCE) * 100, 100)}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <div className="flex justify-between text-sm mb-1">
+                <span>Průběh leasingu</span>
+                <span>{leaseProgressPercent}% z {totalLeaseDays} dní</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="h-2 rounded-full bg-green-500 transition-all duration-300"
+                  style={{ width: `${leaseProgressPercent}%` }}
                 ></div>
               </div>
             </div>
