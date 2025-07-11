@@ -138,12 +138,10 @@ const KilometersTracker: React.FC = () => {
         return d >= month.start && d <= month.end;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
     let km = 0;
-    if (monthRecords.length === 1) {
-      // Pokud je to první měsíc, použij hodnotu prvního záznamu
-      km = i === 0 ? monthRecords[0].totalKm : 0;
-    } else if (monthRecords.length > 1) {
-      km = monthRecords[monthRecords.length - 1].totalKm - monthRecords[0].totalKm;
+    if (monthRecords.length > 0) {
+      km = monthRecords[monthRecords.length - 1].totalKm;
     }
     const diff = km - MONTHLY_LIMIT;
     return { ...month, km, diff, over: diff > 0, first: monthRecords[0] || null, last: monthRecords[monthRecords.length - 1] || null };
@@ -376,7 +374,7 @@ const KilometersTracker: React.FC = () => {
                   {m.km.toLocaleString()} / {MONTHLY_LIMIT} km
                 </div>
                 <div className={`ml-2 text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}>
-                  {m.diff > 0 ? `Přesah: ${m.diff.toLocaleString()} km` : `Předběh: ${Math.abs(m.diff).toLocaleString()} km`}
+                  {m.diff > 0 ? `Přesah: ${m.diff.toLocaleString()} km` : `Ušetřeno: ${Math.abs(m.diff).toLocaleString()} km`}
                 </div>
               </div>
             ))}
