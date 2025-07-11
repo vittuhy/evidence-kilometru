@@ -26,6 +26,10 @@ function getMonthNameCz(date: Date) {
   return date.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' });
 }
 
+function getMonthLabelShort(date: Date) {
+  return date.toLocaleString('cs-CZ', { month: '2-digit', year: '2-digit' }).replace('. ', '/');
+}
+
 const KilometersTracker: React.FC = () => {
   const [records, setRecords] = useState<MileageRecord[]>([]);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
@@ -358,15 +362,11 @@ const KilometersTracker: React.FC = () => {
           <div className="space-y-2">
             {monthlyStats.map((m) => (
               <div key={m.key} className="flex items-center gap-3">
-                <div className="w-36 text-sm text-gray-300">{m.name}</div>
-                <div className="flex-1 h-3 bg-gray-700 rounded-full relative overflow-hidden">
-                  <div
-                    className={`h-3 rounded-full ${m.over ? 'bg-red-500' : 'bg-green-500'}`}
-                    style={{ width: `${Math.min(Math.abs(m.km) / 1750 * 100, 100)}%` }}
-                  ></div>
+                <div className="w-16 text-sm text-gray-300">{getMonthLabelShort(m.start)}</div>
+                <div className="flex-1 flex flex-row items-center gap-2">
+                  <span className={`text-sm font-semibold ${m.over ? 'text-red-400' : 'text-green-400'}`}>{m.km.toLocaleString()} / 1,750 km</span>
+                  <span className={`text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}>{m.diff > 0 ? `- ${m.diff.toLocaleString()} km` : `+ ${Math.abs(m.diff).toLocaleString()} km`}</span>
                 </div>
-                <div className={`ml-2 text-sm font-semibold ${m.over ? 'text-red-400' : 'text-green-400'}`}>{m.km.toLocaleString()} / 1,750 km</div>
-                <div className={`ml-2 text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}>{m.diff > 0 ? `- ${m.diff.toLocaleString()} km` : `+ ${Math.abs(m.diff).toLocaleString()} km`}</div>
               </div>
             ))}
           </div>
