@@ -30,6 +30,8 @@ function getMonthLabelShort(date: Date) {
   return date.toLocaleString('cs-CZ', { month: '2-digit', year: '2-digit' }).replace('. ', '/');
 }
 
+const LOGIN_PASSWORD = process.env.REACT_APP_LOGIN_PASSWORD;
+
 const KilometersTracker: React.FC = () => {
   const [records, setRecords] = useState<MileageRecord[]>([]);
   const [showAddForm, setShowAddForm] = useState<boolean>(false);
@@ -38,6 +40,9 @@ const KilometersTracker: React.FC = () => {
     date: '',
     totalKm: ''
   });
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [loginPassword, setLoginPassword] = useState<string>('');
+  const [loginError, setLoginError] = useState<string>('');
 
   // Konstanty pro leasing
   const LEASE_START = '2025-07-08';
@@ -46,6 +51,30 @@ const KilometersTracker: React.FC = () => {
   const TOLERANCE_KM = 3000; // Tolerovaný nadlimit
   const TOTAL_WITH_TOLERANCE = TOTAL_ALLOWED_KM + TOLERANCE_KM; // 43,000 km
   const DAILY_ALLOWED_KM = 54.8; // 20,000 / 365
+
+  useEffect(() => {
+    // Check localStorage for login
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+      setIsLoggedIn(true);
+    }
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginPassword === LOGIN_PASSWORD) {
+      setIsLoggedIn(true);
+      localStorage.setItem('isLoggedIn', 'true');
+      setLoginError('');
+    } else {
+      setLoginError('Nesprávné heslo.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('isLoggedIn');
+    setLoginPassword('');
+  };
 
   // Načtení dat ze serveru při spuštění
   useEffect(() => {
@@ -208,6 +237,26 @@ const KilometersTracker: React.FC = () => {
 
   const sortedRecords = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <form onSubmit={handleLogin} className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-xs">
+          <h2 className="text-lg font-semibold mb-4 text-white text-center">Přihlášení</h2>
+          <input
+            type="password"
+            placeholder="Zadejte heslo"
+            value={loginPassword}
+            onChange={e => setLoginPassword(e.target.value)}
+            className="w-full mb-3 px-3 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            required
+          />
+          {loginError && <div className="text-red-400 text-sm mb-2 text-center">{loginError}</div>}
+          <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-medium text-white transition-colors">Přihlásit se</button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Header */}
@@ -221,12 +270,18 @@ const KilometersTracker: React.FC = () => {
                 <p className="text-gray-400 text-sm">Operativní leasing</p>
               </div>
             </div>
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-blue-600 hover:bg-blue-700 p-2 rounded-full transition-colors"
-            >
-              {showAddForm ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleLogout}
+                className="ml-4 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-lg text-sm text-white border border-gray-600"
+              >Odhlásit</button>
+              <button
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="bg-blue-600 hover:bg-blue-700 p-2 rounded-full transition-colors"
+              >
+                {showAddForm ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+              </button>
+            </div>
           </div>
         </div>
       </div>
