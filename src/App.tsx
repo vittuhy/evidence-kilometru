@@ -383,12 +383,12 @@ const KilometersTracker: React.FC = () => {
               
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm">Průměr/den:</span>
-                <span className="font-semibold">{avgKmPerDay !== null ? `${avgKmPerDay} km` : 'N/A'}</span>
+                <span className="font-semibold">{avgKmPerDay !== null ? `${Math.round(avgKmPerDay)} km` : 'N/A'}</span>
               </div>
               
               <div className="flex items-center justify-between">
                 <span className="text-sm">Povoleno/den:</span>
-                <span className="font-semibold">{DAILY_ALLOWED_KM} km</span>
+                <span className="font-semibold">55 km</span>
               </div>
             </div>
 
