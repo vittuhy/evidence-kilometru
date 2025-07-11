@@ -196,7 +196,7 @@ const KilometersTracker: React.FC = () => {
 
     let km = 0;
     if (monthRecords.length > 0) {
-      km = monthRecords[0].totalKm;
+      km = monthRecords[monthRecords.length - 1].totalKm;
     }
     const diff = km - MONTHLY_LIMIT;
     return { ...month, km, diff, over: diff > 0, first: monthRecords[0] || null, last: monthRecords[monthRecords.length - 1] || null };
