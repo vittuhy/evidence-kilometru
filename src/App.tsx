@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Car, Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Car, Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Edit2, Trash2, Calendar } from 'lucide-react';
 import { apiService, MileageRecord } from './api';
 
 interface FormData {
@@ -178,9 +178,58 @@ const KilometersTracker: React.FC = () => {
     }
   };
 
+  // Restore handleEdit, handleDelete, formatDate
+  const handleEdit = (record: MileageRecord): void => {
+    setFormData({
+      date: record.date,
+      totalKm: record.totalKm.toString()
+    });
+    setEditingRecord(record);
+    setShowAddForm(true);
+  };
+
+  const handleDelete = async (id: number): Promise<void> => {
+    if (window.confirm('Opravdu chcete smazat tento záznam?')) {
+      try {
+        await apiService.deleteRecord(id);
+        setRecords(records.filter(r => r.id !== id));
+      } catch (error) {
+        console.error('Error deleting record:', error);
+        alert('Chyba při mazání záznamu. Zkuste to znovu.');
+      }
+    }
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('cs-CZ');
+  };
+
+  const sortedRecords = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {/* Formulář pro přidání/editaci záznamu - always at the top */}
+      {/* Header */}
+      <div className="bg-gray-800 shadow-lg">
+        <div className="max-w-md mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Car className="h-8 w-8 text-blue-400" />
+              <div>
+                <h1 className="text-xl font-bold">Evidence kilometrů</h1>
+                <p className="text-gray-400 text-sm">Operativní leasing</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="bg-blue-600 hover:bg-blue-700 p-2 rounded-full transition-colors"
+            >
+              {showAddForm ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Formulář pro přidání/editaci záznamu - now just below header */}
       {showAddForm && (
         <div className="max-w-md mx-auto px-4 pt-6">
           <div className="bg-gray-800 rounded-lg p-6">
@@ -233,26 +282,6 @@ const KilometersTracker: React.FC = () => {
           </div>
         </div>
       )}
-      {/* Header */}
-      <div className="bg-gray-800 shadow-lg">
-        <div className="max-w-md mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Car className="h-8 w-8 text-blue-400" />
-              <div>
-                <h1 className="text-xl font-bold">Evidence kilometrů</h1>
-                <p className="text-gray-400 text-sm">Operativní leasing</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-blue-600 hover:bg-blue-700 p-2 rounded-full transition-colors"
-            >
-              {showAddForm ? <Minus className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-md mx-auto px-4 py-6 space-y-6">
         {/* Statistiky */}
@@ -352,6 +381,43 @@ const KilometersTracker: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Historie záznamů */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-lg font-semibold mb-4">Historie záznamů</h2>
+          {sortedRecords.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>Zatím žádné záznamy</p>
+              <p className="text-sm">Přidejte první záznam tlačítkem +</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {sortedRecords.map((record) => (
+                <div key={record.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
+                  <div>
+                    <div className="font-medium">{record.totalKm.toLocaleString()} km</div>
+                    <div className="text-sm text-gray-400">{formatDate(record.date)}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleEdit(record)}
+                      className="p-2 text-blue-400 hover:bg-gray-600 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(record.id)}
+                      className="p-2 text-red-400 hover:bg-gray-600 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
