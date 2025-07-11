@@ -187,17 +187,16 @@ const KilometersTracker: React.FC = () => {
     const monthRecords = records
       .filter(r => {
         const d = new Date(r.date);
-        return d >= month.start && d <= month.end;
+        return (
+          d.getFullYear() === month.start.getFullYear() &&
+          d.getMonth() === month.start.getMonth()
+        );
       })
-      .sort((a, b) => {
-        const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
-        if (dateDiff !== 0) return dateDiff;
-        return a.totalKm - b.totalKm;
-      });
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     let km = 0;
     if (monthRecords.length > 0) {
-      km = monthRecords[monthRecords.length - 1].totalKm;
+      km = monthRecords[0].totalKm;
     }
     const diff = km - MONTHLY_LIMIT;
     return { ...month, km, diff, over: diff > 0, first: monthRecords[0] || null, last: monthRecords[monthRecords.length - 1] || null };
