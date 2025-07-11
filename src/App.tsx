@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Car, Plus, Edit2, Trash2, Calendar, TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Car, Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { apiService, MileageRecord } from './api';
 
 interface FormData {
@@ -177,33 +177,6 @@ const KilometersTracker: React.FC = () => {
       alert('Chyba při ukládání záznamu. Zkuste to znovu.');
     }
   };
-
-  const handleEdit = (record: MileageRecord): void => {
-    setFormData({
-      date: record.date,
-      totalKm: record.totalKm.toString()
-    });
-    setEditingRecord(record);
-    setShowAddForm(true);
-  };
-
-  const handleDelete = async (id: number): Promise<void> => {
-    if (window.confirm('Opravdu chcete smazat tento záznam?')) {
-      try {
-        await apiService.deleteRecord(id);
-        setRecords(records.filter(r => r.id !== id));
-      } catch (error) {
-        console.error('Error deleting record:', error);
-        alert('Chyba při mazání záznamu. Zkuste to znovu.');
-      }
-    }
-  };
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('cs-CZ');
-  };
-
-  const sortedRecords = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
