@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Car, Plus, Edit2, Trash2, Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Car, Plus, Edit2, Trash2, Calendar, TrendingUp, TrendingDown, Minus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { apiService, MileageRecord } from './api';
 
 interface FormData {
@@ -14,6 +14,16 @@ interface Stats {
   avgKmPerDay: number;
   daysSinceStart: number;
   isUnderLimit: boolean;
+}
+
+const MONTHLY_LIMIT = 1750;
+
+function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+}
+
+function getMonthNameCz(date: Date) {
+  return date.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' });
 }
 
 const KilometersTracker: React.FC = () => {
@@ -85,6 +95,52 @@ const KilometersTracker: React.FC = () => {
   };
 
   const stats = calculateStats();
+
+  // Výpočet měsíčních nájezdů
+  const leaseStartDate = new Date(LEASE_START);
+  const today = new Date();
+  const months: { key: string; name: string; start: Date; end: Date }[] = [];
+  let d = new Date(leaseStartDate.getFullYear(), leaseStartDate.getMonth(), 1);
+  while (d <= today) {
+    const start = new Date(d);
+    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    months.push({
+      key: getMonthKey(start),
+      name: getMonthNameCz(start),
+      start,
+      end,
+    });
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  }
+
+  // Pro každý měsíc najdi první a poslední záznam a spočítej rozdíl
+  const monthlyStats = months.map((month) => {
+    const monthRecords = records
+      .filter(r => {
+        const d = new Date(r.date);
+        return d >= month.start && d <= month.end;
+      })
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    if (monthRecords.length === 0) return { ...month, km: 0, diff: 0, over: false, first: null, last: null };
+    const first = monthRecords[0];
+    const last = monthRecords[monthRecords.length - 1];
+    const km = last.totalKm - first.totalKm;
+    const diff = km - MONTHLY_LIMIT;
+    return { ...month, km, diff, over: diff > 0, first, last };
+  });
+
+  // Celkový odhad
+  let totalProjection = null;
+  if (records.length > 0) {
+    const sorted = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const daysElapsed = Math.ceil((new Date(last.date).getTime() - new Date(first.date).getTime()) / (1000 * 60 * 60 * 24));
+    if (daysElapsed > 0) {
+      const pace = (last.totalKm - first.totalKm) / daysElapsed;
+      totalProjection = Math.round(pace * 730 + Number(first.totalKm));
+    }
+  }
 
   const handleSubmit = async (): Promise<void> => {
     if (!formData.date || !formData.totalKm) return;
@@ -187,15 +243,24 @@ const KilometersTracker: React.FC = () => {
             </div>
 
             <div className="border-t border-gray-700 pt-4">
+              {/* Rozdíl */}
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm">Rozdíl:</span>
-                <div className={`flex items-center gap-1 ${stats.isUnderLimit ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`flex items-center gap-1 ${stats.isUnderLimit ? 'text-green-400' : 'text-red-400'}`}> 
                   {stats.isUnderLimit ? <TrendingDown className="h-4 w-4" /> : <TrendingUp className="h-4 w-4" />}
-                  <span className="font-semibold">
-                    {Math.abs(stats.difference).toLocaleString()} km
-                  </span>
+                  <span className="font-semibold">{Math.abs(stats.difference).toLocaleString()} km</span>
                 </div>
               </div>
+              {/* Celkový odhad */}
+              {totalProjection !== null && (
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Celkový odhad:</span>
+                  <div className={`flex items-center gap-1 ${totalProjection > TOTAL_ALLOWED_KM ? 'text-red-400' : 'text-green-400'}`}> 
+                    {totalProjection > TOTAL_ALLOWED_KM ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                    <span className="font-semibold">{totalProjection.toLocaleString()} km</span>
+                  </div>
+                </div>
+              )}
               
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm">Průměr/den:</span>
@@ -232,7 +297,7 @@ const KilometersTracker: React.FC = () => {
           </div>
         )}
 
-        {/* Formulář pro přidání/editaci záznamu */}
+        {/* Formulář pro přidání/editaci záznamu - moved above monthly overview */}
         {showAddForm && (
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-lg font-semibold mb-4">
@@ -249,7 +314,6 @@ const KilometersTracker: React.FC = () => {
                   required
                 />
               </div>
-              
               <div>
                 <label className="block text-sm font-medium mb-2">Celkový nájezd (km)</label>
                 <input
@@ -261,7 +325,6 @@ const KilometersTracker: React.FC = () => {
                   required
                 />
               </div>
-              
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -285,6 +348,32 @@ const KilometersTracker: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Měsíční přehled */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <h2 className="text-lg font-semibold mb-4">Měsíční přehled</h2>
+          <div className="space-y-2">
+            {monthlyStats.map((m) => (
+              <div key={m.key} className="flex items-center gap-3">
+                <div className="w-28 text-sm text-gray-300">{m.name}</div>
+                <div className="flex-1 h-3 bg-gray-700 rounded-full relative overflow-hidden">
+                  <div
+                    className={`h-3 rounded-full ${m.over ? 'bg-red-500' : 'bg-green-500'}`}
+                    style={{ width: `${Math.min(Math.abs(m.km) / MONTHLY_LIMIT * 100, 100)}%` }}
+                  ></div>
+                </div>
+                <div className={`ml-2 text-sm font-semibold ${m.over ? 'text-red-400' : 'text-green-400'}`}>
+                  {m.km.toLocaleString()} / {MONTHLY_LIMIT} km
+                </div>
+                <div className={`ml-2 text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}> 
+                  {m.over
+                    ? `+${m.diff.toLocaleString()} km nad limitem`
+                    : `${m.diff === 0 ? '' : '-' + Math.abs(m.diff).toLocaleString() + ' km pod limitem'}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Seznam záznamů */}
         <div className="bg-gray-800 rounded-lg p-6">
