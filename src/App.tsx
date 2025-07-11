@@ -102,7 +102,7 @@ const KilometersTracker: React.FC = () => {
   const lastRecordDate = lastRecord ? new Date(lastRecord.date) : null;
 
   // Výpočet dnů od začátku leasingu do posledního záznamu
-  const daysElapsedFromStart = lastRecordDate ? Math.ceil((lastRecordDate.getTime() - leaseStartDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const daysElapsedFromStart = lastRecordDate ? Math.ceil((lastRecordDate.getTime() - leaseStartDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 : 0;
 
   // Průměr/den podle posledního záznamu
   const avgKmPerDay = (lastRecord && daysElapsedFromStart > 0) ? Math.round((lastRecord.totalKm / daysElapsedFromStart) * 10) / 10 : null;
@@ -131,19 +131,22 @@ const KilometersTracker: React.FC = () => {
   }
 
   // Pro každý měsíc najdi první a poslední záznam a spočítej rozdíl
-  const monthlyStats = months.map((month) => {
+  const monthlyStats = months.map((month, i) => {
     const monthRecords = records
       .filter(r => {
         const d = new Date(r.date);
         return d >= month.start && d <= month.end;
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    if (monthRecords.length === 0) return { ...month, km: 0, diff: 0, over: false, first: null, last: null };
-    const first = monthRecords[0];
-    const last = monthRecords[monthRecords.length - 1];
-    const km = last.totalKm - first.totalKm;
+    let km = 0;
+    if (monthRecords.length === 1) {
+      // Pokud je to první měsíc, použij hodnotu prvního záznamu
+      km = i === 0 ? monthRecords[0].totalKm : 0;
+    } else if (monthRecords.length > 1) {
+      km = monthRecords[monthRecords.length - 1].totalKm - monthRecords[0].totalKm;
+    }
     const diff = km - MONTHLY_LIMIT;
-    return { ...month, km, diff, over: diff > 0, first, last };
+    return { ...month, km, diff, over: diff > 0, first: monthRecords[0] || null, last: monthRecords[monthRecords.length - 1] || null };
   });
 
   const handleSubmit = async (): Promise<void> => {
@@ -204,6 +207,59 @@ const KilometersTracker: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* Formulář pro přidání/editaci záznamu - always at the top */}
+      {showAddForm && (
+        <div className="max-w-md mx-auto px-4 pt-6">
+          <div className="bg-gray-800 rounded-lg p-6">
+            <h2 className="text-lg font-semibold mb-4">
+              {editingRecord ? 'Upravit záznam' : 'Nový záznam'}
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Datum</label>
+                <input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({...formData, date: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Celkový nájezd (km)</label>
+                <input
+                  type="number"
+                  value={formData.totalKm}
+                  onChange={(e) => setFormData({...formData, totalKm: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="např. 15000"
+                  required
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-medium transition-colors"
+                >
+                  {editingRecord ? 'Uložit změny' : 'Přidat záznam'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddForm(false);
+                    setEditingRecord(null);
+                    setFormData({ date: '', totalKm: '' });
+                  }}
+                  className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Zrušit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-gray-800 shadow-lg">
         <div className="max-w-md mx-auto px-4 py-6">
@@ -301,58 +357,6 @@ const KilometersTracker: React.FC = () => {
           </div>
         )}
 
-        {/* Formulář pro přidání/editaci záznamu - moved above monthly overview */}
-        {showAddForm && (
-          <div className="bg-gray-800 rounded-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              {editingRecord ? 'Upravit záznam' : 'Nový záznam'}
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Datum</label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({...formData, date: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Celkový nájezd (km)</label>
-                <input
-                  type="number"
-                  value={formData.totalKm}
-                  onChange={(e) => setFormData({...formData, totalKm: e.target.value})}
-                  className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="např. 15000"
-                  required
-                />
-              </div>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-medium transition-colors"
-                >
-                  {editingRecord ? 'Uložit změny' : 'Přidat záznam'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setEditingRecord(null);
-                    setFormData({ date: '', totalKm: '' });
-                  }}
-                  className="px-4 py-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Zrušit
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Měsíční přehled */}
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Měsíční přehled</h2>
@@ -369,52 +373,12 @@ const KilometersTracker: React.FC = () => {
                 <div className={`ml-2 text-sm font-semibold ${m.over ? 'text-red-400' : 'text-green-400'}`}>
                   {m.km.toLocaleString()} / {MONTHLY_LIMIT} km
                 </div>
-                <div className={`ml-2 text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}> 
-                  {m.over
-                    ? `+${m.diff.toLocaleString()} km nad limitem`
-                    : `${m.diff === 0 ? '' : '-' + Math.abs(m.diff).toLocaleString() + ' km pod limitem'}`}
+                <div className={`ml-2 text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}>
+                  {m.diff > 0 ? `Přesah: ${m.diff.toLocaleString()} km` : `Předběh: ${Math.abs(m.diff).toLocaleString()} km`}
                 </div>
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Seznam záznamů */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Historie záznamů</h2>
-          
-          {sortedRecords.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>Zatím žádné záznamy</p>
-              <p className="text-sm">Přidejte první záznam tlačítkem +</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sortedRecords.map((record) => (
-                <div key={record.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                  <div>
-                    <div className="font-medium">{record.totalKm.toLocaleString()} km</div>
-                    <div className="text-sm text-gray-400">{formatDate(record.date)}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(record)}
-                      className="p-2 text-blue-400 hover:bg-gray-600 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(record.id)}
-                      className="p-2 text-red-400 hover:bg-gray-600 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     </div>
