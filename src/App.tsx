@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Car, Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Edit2, Trash2, Calendar } from 'lucide-react';
+import { Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Edit2, Trash2, Calendar } from 'lucide-react';
 import { apiService, MileageRecord } from './api';
 
 interface FormData {
@@ -264,7 +264,7 @@ const KilometersTracker: React.FC = () => {
         <div className="max-w-md mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Car className="h-8 w-8 text-blue-400" />
+              <img src={require('./toyota.png')} alt="Toyota logo" className="h-8 w-auto object-contain" style={{marginRight: '0.5rem'}} />
               <div>
                 <h1 className="text-xl font-bold">Evidence kilometrů</h1>
                 <p className="text-gray-400 text-sm">Operativní leasing</p>
