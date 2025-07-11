@@ -348,11 +348,6 @@ const KilometersTracker: React.FC = () => {
                   style={{ width: `${Math.min((stats.currentKm / TOTAL_WITH_TOLERANCE) * 100, 100)}%` }}
                 ></div>
               </div>
-              <div className="text-xs text-gray-400 mt-1">
-                Limit: {TOTAL_ALLOWED_KM.toLocaleString()} km • 
-                Tolerance: +{TOLERANCE_KM.toLocaleString()} km • 
-                Maximum: {TOTAL_WITH_TOLERANCE.toLocaleString()} km
-              </div>
             </div>
           </div>
         )}
@@ -363,19 +358,15 @@ const KilometersTracker: React.FC = () => {
           <div className="space-y-2">
             {monthlyStats.map((m) => (
               <div key={m.key} className="flex items-center gap-3">
-                <div className="w-28 text-sm text-gray-300">{m.name}</div>
+                <div className="w-36 text-sm text-gray-300">{m.name}</div>
                 <div className="flex-1 h-3 bg-gray-700 rounded-full relative overflow-hidden">
                   <div
                     className={`h-3 rounded-full ${m.over ? 'bg-red-500' : 'bg-green-500'}`}
-                    style={{ width: `${Math.min(Math.abs(m.km) / MONTHLY_LIMIT * 100, 100)}%` }}
+                    style={{ width: `${Math.min(Math.abs(m.km) / 1750 * 100, 100)}%` }}
                   ></div>
                 </div>
-                <div className={`ml-2 text-sm font-semibold ${m.over ? 'text-red-400' : 'text-green-400'}`}>
-                  {m.km.toLocaleString()} / {MONTHLY_LIMIT} km
-                </div>
-                <div className={`ml-2 text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}>
-                  {m.diff > 0 ? `Přesah: ${m.diff.toLocaleString()} km` : `Ušetřeno: ${Math.abs(m.diff).toLocaleString()} km`}
-                </div>
+                <div className={`ml-2 text-sm font-semibold ${m.over ? 'text-red-400' : 'text-green-400'}`}>{m.km.toLocaleString()} / 20,000 / 1,750 km</div>
+                <div className={`ml-2 text-xs ${m.over ? 'text-red-400' : 'text-green-400'}`}>{m.diff > 0 ? `- ${m.diff.toLocaleString()} km` : `+ ${Math.abs(m.diff).toLocaleString()} km`}</div>
               </div>
             ))}
           </div>
