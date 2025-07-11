@@ -3,5 +3,7 @@
   "version": "1.0.0",
   "description": "Netlify functions for Evidence Kilometrů API",
   "main": "api.js",
-  "dependencies": {}
-} 
+  "dependencies": {
+    "googleapis": "^152.0.0"
+  }
+}

@@ -1,220 +1,206 @@
-// For Netlify Functions, we'll use a simple in-memory storage with fallback
-// In production, you'd want to use a database like Supabase, MongoDB, etc.
+const { google } = require('googleapis');
 
-let inMemoryData = [];
+const SHEET_ID = '1QvIQpN0Yr4dee1aNf3_ubwyWpWCIULfRWOOAqWAmywM'; // Your sheet ID
+const SHEET_NAME = 'Sheet1'; // Change if your sheet/tab is named differently
 
-// Read data (try file first, then use in-memory)
-async function readData() {
-  try {
-    // For now, return in-memory data
-    // In a real app, you'd connect to a database here
-    return inMemoryData;
-  } catch (error) {
-    console.error('Error reading data:', error);
-    return [];
-  }
+function getAuth() {
+  const creds = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+  return new google.auth.GoogleAuth({
+    credentials: creds,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
 }
 
-// Write data (store in memory for now)
-async function writeData(data) {
-  try {
-    inMemoryData = data;
-    // In a real app, you'd save to a database here
-    return true;
-  } catch (error) {
-    console.error('Error writing data:', error);
-    throw error;
-  }
+async function getSheet() {
+  const auth = await getAuth().getClient();
+  const sheets = google.sheets({ version: 'v4', auth });
+  return sheets;
 }
 
-// CORS headers
+async function getRows() {
+  const sheets = await getSheet();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!A2:D`,
+  });
+  const rows = res.data.values || [];
+  return rows.map(([id, date, totalKm, createdAt]) => ({
+    id: Number(id),
+    date,
+    totalKm: Number(totalKm),
+    createdAt,
+  }));
+}
+
+async function appendRow(record) {
+  const sheets = await getSheet();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!A:D`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: [[record.id, record.date, record.totalKm, record.createdAt]],
+    },
+  });
+}
+
+async function updateRow(id, newData) {
+  const sheets = await getSheet();
+  const rows = await getRows();
+  const rowIndex = rows.findIndex(r => r.id === id);
+  if (rowIndex === -1) return false;
+  const rowNumber = rowIndex + 2; // +2 because of header and 0-index
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID,
+    range: `${SHEET_NAME}!A${rowNumber}:D${rowNumber}`,
+    valueInputOption: 'RAW',
+    requestBody: {
+      values: [[id, newData.date, newData.totalKm, newData.createdAt]],
+    },
+  });
+  return true;
+}
+
+async function deleteRow(id) {
+  const sheets = await getSheet();
+  const rows = await getRows();
+  const rowIndex = rows.findIndex(r => r.id === id);
+  if (rowIndex === -1) return false;
+  const rowNumber = rowIndex + 2; // +2 for header
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId: 0, // Default first sheet, change if needed
+            dimension: 'ROWS',
+            startIndex: rowNumber - 1,
+            endIndex: rowNumber,
+          },
+        },
+      }],
+    },
+  });
+  return true;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
 };
 
-exports.handler = async (event, context) => {
-  // Handle CORS preflight requests
+exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 200,
-      headers: corsHeaders,
-      body: ''
-    };
+    return { statusCode: 200, headers: corsHeaders, body: '' };
   }
-
   try {
     const { path: requestPath, httpMethod, body } = event;
-    
-    // Extract the endpoint from the path
-    // /api/records -> /records
     const endpoint = requestPath.replace('/.netlify/functions/api', '');
-    
-    // Health check endpoint
+
+    // Health check
     if (endpoint === '/health' && httpMethod === 'GET') {
       return {
         statusCode: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        },
-        body: JSON.stringify({
-          status: 'OK',
-          timestamp: new Date().toISOString()
-        })
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({ status: 'OK', timestamp: new Date().toISOString() }),
       };
     }
-    
-    // Records endpoints
-    if (endpoint === '/records') {
-      if (httpMethod === 'GET') {
-        // Get all records
-        const records = await readData();
-        return {
-          statusCode: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          },
-          body: JSON.stringify(records)
-        };
-      }
-      
-      if (httpMethod === 'POST') {
-        // Create new record
-        const { date, totalKm } = JSON.parse(body);
-        
-        if (!date || !totalKm) {
-          return {
-            statusCode: 400,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            },
-            body: JSON.stringify({ error: 'Date and totalKm are required' })
-          };
-        }
 
-        const records = await readData();
-        const newRecord = {
-          id: Date.now(),
-          date,
-          totalKm: parseInt(totalKm),
-          createdAt: new Date().toISOString()
-        };
-
-        records.push(newRecord);
-        await writeData(records);
-        
-        return {
-          statusCode: 201,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          },
-          body: JSON.stringify(newRecord)
-        };
-      }
+    // GET all records
+    if (endpoint === '/records' && httpMethod === 'GET') {
+      const rows = await getRows();
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify(rows),
+      };
     }
-    
-    // Handle /records/:id endpoints
-    const recordIdMatch = endpoint.match(/^\/records\/(\d+)$/);
-    if (recordIdMatch) {
-      const recordId = parseInt(recordIdMatch[1]);
-      
-      if (httpMethod === 'PUT') {
-        // Update record
-        const { date, totalKm } = JSON.parse(body);
-        
-        if (!date || !totalKm) {
-          return {
-            statusCode: 400,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            },
-            body: JSON.stringify({ error: 'Date and totalKm are required' })
-          };
-        }
 
-        const records = await readData();
-        const recordIndex = records.findIndex(r => r.id === recordId);
-        
-        if (recordIndex === -1) {
-          return {
-            statusCode: 404,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            },
-            body: JSON.stringify({ error: 'Record not found' })
-          };
-        }
-
-        const updatedRecord = {
-          ...records[recordIndex],
-          date,
-          totalKm: parseInt(totalKm)
-        };
-
-        records[recordIndex] = updatedRecord;
-        await writeData(records);
-        
+    // POST create record
+    if (endpoint === '/records' && httpMethod === 'POST') {
+      const { date, totalKm } = JSON.parse(body);
+      if (!date || !totalKm) {
         return {
-          statusCode: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          },
-          body: JSON.stringify(updatedRecord)
+          statusCode: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          body: JSON.stringify({ error: 'Date and totalKm are required' }),
         };
       }
-      
-      if (httpMethod === 'DELETE') {
-        // Delete record
-        const records = await readData();
-        const filteredRecords = records.filter(r => r.id !== recordId);
-        
-        if (filteredRecords.length === records.length) {
-          return {
-            statusCode: 404,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            },
-            body: JSON.stringify({ error: 'Record not found' })
-          };
-        }
-
-        await writeData(filteredRecords);
-        return {
-          statusCode: 204,
-          headers: corsHeaders,
-          body: ''
-        };
-      }
+      const newRecord = {
+        id: Date.now(),
+        date,
+        totalKm: Number(totalKm),
+        createdAt: new Date().toISOString(),
+      };
+      await appendRow(newRecord);
+      return {
+        statusCode: 201,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify(newRecord),
+      };
     }
-    
-    // 404 for unknown endpoints
+
+    // PUT update record
+    const putMatch = endpoint.match(/^\/records\/(\d+)$/);
+    if (putMatch && httpMethod === 'PUT') {
+      const id = Number(putMatch[1]);
+      const { date, totalKm } = JSON.parse(body);
+      if (!date || !totalKm) {
+        return {
+          statusCode: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          body: JSON.stringify({ error: 'Date and totalKm are required' }),
+        };
+      }
+      const updated = await updateRow(id, {
+        date,
+        totalKm: Number(totalKm),
+        createdAt: new Date().toISOString(),
+      });
+      if (!updated) {
+        return {
+          statusCode: 404,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          body: JSON.stringify({ error: 'Record not found' }),
+        };
+      }
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({ id, date, totalKm: Number(totalKm), createdAt: new Date().toISOString() }),
+      };
+    }
+
+    // DELETE record
+    const delMatch = endpoint.match(/^\/records\/(\d+)$/);
+    if (delMatch && httpMethod === 'DELETE') {
+      const id = Number(delMatch[1]);
+      const deleted = await deleteRow(id);
+      if (!deleted) {
+        return {
+          statusCode: 404,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          body: JSON.stringify({ error: 'Record not found' }),
+        };
+      }
+      return { statusCode: 204, headers: corsHeaders, body: '' };
+    }
+
+    // 404 fallback
     return {
       statusCode: 404,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      },
-      body: JSON.stringify({ error: 'Endpoint not found' })
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      body: JSON.stringify({ error: 'Endpoint not found' }),
     };
-    
   } catch (error) {
     console.error('Function error:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      },
-      body: JSON.stringify({ error: 'Internal server error' })
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
+      body: JSON.stringify({ error: 'Internal server error', details: error.message }),
     };
   }
 }; 
