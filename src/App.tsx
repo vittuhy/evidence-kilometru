@@ -98,7 +98,6 @@ const KilometersTracker: React.FC = () => {
 
   // Najdi poslední záznam a jeho datum
   const sortedByDate = [...records].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  const firstRecord = sortedByDate[0];
   const lastRecord = sortedByDate[sortedByDate.length - 1];
   const lastRecordDate = lastRecord ? new Date(lastRecord.date) : null;
 
