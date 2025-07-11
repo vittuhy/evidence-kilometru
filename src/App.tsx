@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Edit2, Trash2, Calendar } from 'lucide-react';
 import { apiService, MileageRecord } from './api';
 
@@ -43,6 +43,8 @@ const KilometersTracker: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [loginPassword, setLoginPassword] = useState<string>('');
   const [loginError, setLoginError] = useState<string>('');
+  const mileageInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   // Konstanty pro leasing
   const LEASE_START = '2025-07-08';
@@ -197,8 +199,40 @@ const KilometersTracker: React.FC = () => {
     return { ...month, km, diff, over: diff > 0, first: monthRecords[0] || null, last: monthRecords[monthRecords.length - 1] || null };
   });
 
+  // Prefill today's date for new record
+  useEffect(() => {
+    if (showAddForm && !editingRecord) {
+      setFormData({
+        date: new Date().toISOString().slice(0, 10),
+        totalKm: ''
+      });
+      setTimeout(() => {
+        mileageInputRef.current?.focus();
+      }, 100);
+    }
+  }, [showAddForm, editingRecord]);
+
+  // Scroll to form and focus mileage when editing
+  useEffect(() => {
+    if (showAddForm && (editingRecord || formRef.current)) {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setTimeout(() => {
+        mileageInputRef.current?.focus();
+      }, 100);
+    }
+  }, [showAddForm, editingRecord]);
+
   const handleSubmit = async (): Promise<void> => {
     if (!formData.date || !formData.totalKm) return;
+
+    // Validation: mileage must not decrease for later dates
+    const enteredKm = parseInt(formData.totalKm);
+    const enteredDate = new Date(formData.date);
+    const conflicting = records.find(r => new Date(r.date) < enteredDate && r.totalKm > enteredKm);
+    if (conflicting) {
+      alert('Nový záznam musí mít stav km stejný nebo vyšší než všechny předchozí záznamy.');
+      return;
+    }
 
     try {
       if (editingRecord) {
@@ -312,7 +346,7 @@ const KilometersTracker: React.FC = () => {
 
       {/* Formulář pro přidání/editaci záznamu - now just below header */}
       {showAddForm && (
-        <div className="max-w-md mx-auto px-4 pt-6">
+        <div ref={formRef} className="max-w-md mx-auto px-4 pt-6">
           <div className="bg-gray-800 rounded-lg p-6">
             <h2 className="text-lg font-semibold mb-4">
               {editingRecord ? 'Upravit záznam' : 'Nový záznam'}
@@ -332,6 +366,7 @@ const KilometersTracker: React.FC = () => {
                 <label className="block text-sm font-medium mb-2">Celkový nájezd (km)</label>
                 <input
                   type="number"
+                  ref={mileageInputRef}
                   value={formData.totalKm}
                   onChange={(e) => setFormData({...formData, totalKm: e.target.value})}
                   className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
