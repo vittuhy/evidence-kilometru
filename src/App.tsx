@@ -208,7 +208,7 @@ interface MonthlyChartProps {
 const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const [chartWidth, setChartWidth] = useState(0);
-  const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
+  // Removed hoveredMonth state as it's not being used
   const [tooltipData, setTooltipData] = useState<{
     month: string;
     km: number;
@@ -245,11 +245,7 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
   const availableWidth = chartWidth - padding * 2;
   const availableHeight = chartHeight - padding * 2;
 
-  const points = validStats.map((month, index) => {
-    const x = padding + (index / (validStats.length - 1)) * availableWidth;
-    const y = padding + availableHeight - ((month.km - minKm) / range) * availableHeight;
-    return { x, y, month };
-  });
+  // Removed unused points variable
 
   // Calculate step widths (each month gets equal width, but leave space for future months)
   const maxMonthsToShow = 12; // Show whole year (12 months)
@@ -301,7 +297,6 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
                   opacity="0.3"
                   style={{ cursor: 'pointer' }}
                   onMouseEnter={(e) => {
-                    setHoveredMonth(month.key);
                     const rect = e.currentTarget.getBoundingClientRect();
                     const chartRect = chartRef.current?.getBoundingClientRect();
                     if (chartRect) {
@@ -316,7 +311,6 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
                     }
                   }}
                   onMouseLeave={() => {
-                    setHoveredMonth(null);
                     setTooltipData(null);
                   }}
                   onClick={(e) => {
@@ -347,7 +341,6 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
                   strokeWidth="2"
                   style={{ cursor: 'pointer' }}
                   onMouseEnter={(e) => {
-                    setHoveredMonth(month.key);
                     const rect = e.currentTarget.getBoundingClientRect();
                     const chartRect = chartRef.current?.getBoundingClientRect();
                     if (chartRect) {
@@ -362,7 +355,6 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
                     }
                   }}
                   onMouseLeave={() => {
-                    setHoveredMonth(null);
                     setTooltipData(null);
                   }}
                   onClick={(e) => {
@@ -693,11 +685,7 @@ const KilometersTracker: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('cs-CZ');
-  };
-
-  const sortedRecords = [...records].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Removed unused formatDate and sortedRecords variables
 
   const today = new Date();
   const LEASE_END = '2027-07-08';
