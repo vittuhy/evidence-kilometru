@@ -237,15 +237,55 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
   const minKm = 0; // Always start from 0 for monthly kilometers
   const range = maxKm - minKm;
 
+  const chartHeight = 120;
+  const padding = 20;
+
   // Filter out months with 0 km (no records)
   const validStats = monthlyStats.filter(m => m.km > 0);
 
-  const chartHeight = 120;
-  const padding = 20;
+  // Don't render chart if no valid data
+  if (validStats.length === 0) {
+    return (
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <BarChart3 className="h-4 w-4 text-blue-400" />
+          <h3 className="text-sm font-medium text-gray-300">Průběh měsíčních kilometrů</h3>
+        </div>
+        <div 
+          ref={chartRef}
+          className="relative bg-gray-750 rounded-lg p-4 border border-gray-700"
+          style={{ height: chartHeight }}
+        >
+          <div className="flex items-center justify-center h-full text-gray-400">
+            Žádná data k zobrazení
+          </div>
+        </div>
+      </div>
+    );
+  }
   const availableWidth = chartWidth - padding * 2;
   const availableHeight = chartHeight - padding * 2;
 
-  // Removed unused points variable
+  // Don't render chart if width is not available yet
+  if (chartWidth === 0) {
+    return (
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <BarChart3 className="h-4 w-4 text-blue-400" />
+          <h3 className="text-sm font-medium text-gray-300">Průběh měsíčních kilometrů</h3>
+        </div>
+        <div 
+          ref={chartRef}
+          className="relative bg-gray-750 rounded-lg p-4 border border-gray-700"
+          style={{ height: chartHeight }}
+        >
+          <div className="flex items-center justify-center h-full text-gray-400">
+            Načítání grafu...
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate step widths (each month gets equal width, but leave space for future months)
   const maxMonthsToShow = 12; // Show whole year (12 months)
