@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Edit2, Trash2, Calendar } from 'lucide-react';
+import { Plus, Minus, TrendingUp, TrendingDown, ArrowUpRight, ArrowDownRight, Edit2, Trash2, Calendar, ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
 import { apiService, MileageRecord } from './api';
 
 interface FormData {
@@ -23,7 +23,9 @@ function getMonthKey(date: Date) {
 }
 
 function getMonthNameCz(date: Date) {
-  return date.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' });
+  const monthName = date.toLocaleString('cs-CZ', { month: 'long', year: 'numeric' });
+  // Ensure first letter is capitalized
+  return monthName.charAt(0).toUpperCase() + monthName.slice(1);
 }
 
 function getMonthLabelShort(date: Date) {
@@ -31,6 +33,401 @@ function getMonthLabelShort(date: Date) {
 }
 
 const LOGIN_PASSWORD = process.env.REACT_APP_LOGIN_PASSWORD;
+
+// New RecordHistory component
+interface RecordHistoryProps {
+  records: MileageRecord[];
+  onEdit: (record: MileageRecord) => void;
+  onDelete: (id: number) => void;
+  monthlyStats: Array<{
+    key: string;
+    name: string;
+    start: Date;
+    end: Date;
+    km: number;
+    diff: number;
+    over: boolean;
+    first: MileageRecord | null;
+    last: MileageRecord | null;
+  }>;
+}
+
+const RecordHistory: React.FC<RecordHistoryProps> = ({ records, onEdit, onDelete, monthlyStats }) => {
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
+  const today = new Date();
+  const currentMonthKey = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}`;
+
+  // Expand current month by default
+  useEffect(() => {
+    setExpandedMonths(new Set([currentMonthKey]));
+  }, [currentMonthKey]);
+
+  const toggleMonth = (monthKey: string) => {
+    const newExpanded = new Set(expandedMonths);
+    if (newExpanded.has(monthKey)) {
+      newExpanded.delete(monthKey);
+    } else {
+      newExpanded.add(monthKey);
+    }
+    setExpandedMonths(newExpanded);
+  };
+
+  const getMonthRecords = (monthKey: string) => {
+    const [year, month] = monthKey.split('-').map(Number);
+    return records
+      .filter(record => {
+        const recordDate = new Date(record.date);
+        return recordDate.getFullYear() === year && recordDate.getMonth() === month - 1;
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Newest first
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('cs-CZ');
+  };
+
+  const isCurrentMonth = (monthKey: string) => monthKey === currentMonthKey;
+
+  if (records.length === 0) {
+    return (
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h2 className="text-lg font-semibold mb-4">Historie záznamů</h2>
+        <div className="text-center py-8 text-gray-400">
+          <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+          <p>Zatím žádné záznamy</p>
+          <p className="text-sm">Přidejte první záznam tlačítkem +</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6">
+      <h2 className="text-lg font-semibold mb-4">Historie záznamů</h2>
+      <div className="space-y-3">
+        {[...monthlyStats].reverse().map((month) => {
+          const monthRecords = getMonthRecords(month.key);
+          const isExpanded = expandedMonths.has(month.key);
+          const isCurrent = isCurrentMonth(month.key);
+
+          return (
+            <div key={month.key} className="border border-gray-700 rounded-lg overflow-hidden">
+              {/* Month Header */}
+              <button
+                onClick={() => toggleMonth(month.key)}
+                className={`w-full p-4 flex items-center justify-between transition-colors ${
+                  isCurrent ? 'bg-blue-900/20 border-b border-blue-700/30' : 'bg-gray-750 hover:bg-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="transition-transform duration-200">
+                    {isExpanded ? (
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="text-left">
+                    {isExpanded ? (
+                      <div className="font-semibold">{month.name}</div>
+                    ) : (
+                      <div className="font-semibold">{month.name}</div>
+                    )}
+                  </div>
+                </div>
+                {isCurrent && false && (
+                  <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">
+                    Aktuální
+                  </span>
+                )}
+              </button>
+
+              {/* Month Content */}
+              {isExpanded && (
+                <div className="bg-gray-750 border-t border-gray-700">
+                  <div className="p-4 space-y-3">
+                    {monthRecords.length === 0 ? (
+                      <div className="text-center py-4 text-gray-400 text-sm">
+                        Žádné záznamy v tomto měsíci
+                      </div>
+                    ) : (
+                      monthRecords.map((record) => (
+                        <div
+                          key={record.id}
+                          className="flex items-center justify-between p-3 bg-gray-700 rounded-lg hover:bg-gray-650 transition-colors"
+                        >
+                          <div>
+                            <div className="font-medium">{record.totalKm.toLocaleString()} km</div>
+                            <div className="text-sm text-gray-400">{formatDate(record.date)}</div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => onEdit(record)}
+                              className="p-2 text-blue-400 hover:bg-gray-600 rounded-lg transition-colors"
+                              title="Upravit"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => onDelete(record.id)}
+                              className="p-2 text-red-400 hover:bg-gray-600 rounded-lg transition-colors"
+                              title="Smazat"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// Chart component for monthly overview
+interface MonthlyChartProps {
+  monthlyStats: Array<{
+    key: string;
+    name: string;
+    start: Date;
+    end: Date;
+    km: number;
+    diff: number;
+    over: boolean;
+    first: MileageRecord | null;
+    last: MileageRecord | null;
+  }>;
+}
+
+const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = useState(0);
+  const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
+  const [tooltipData, setTooltipData] = useState<{
+    month: string;
+    km: number;
+    diff: number;
+    over: boolean;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const updateChartWidth = () => {
+      if (chartRef.current) {
+        setChartWidth(chartRef.current.offsetWidth);
+      }
+    };
+
+    updateChartWidth();
+    window.addEventListener('resize', updateChartWidth);
+    return () => window.removeEventListener('resize', updateChartWidth);
+  }, []);
+
+  if (monthlyStats.length === 0) return null;
+
+  // Use monthlyStats directly (oldest to newest) instead of reversing
+  const maxKm = Math.max(...monthlyStats.map(m => m.km), 1750);
+  const minKm = 0; // Always start from 0 for monthly kilometers
+  const range = maxKm - minKm;
+
+  // Filter out months with 0 km (no records)
+  const validStats = monthlyStats.filter(m => m.km > 0);
+
+  const chartHeight = 120;
+  const padding = 20;
+  const availableWidth = chartWidth - padding * 2;
+  const availableHeight = chartHeight - padding * 2;
+
+  const points = validStats.map((month, index) => {
+    const x = padding + (index / (validStats.length - 1)) * availableWidth;
+    const y = padding + availableHeight - ((month.km - minKm) / range) * availableHeight;
+    return { x, y, month };
+  });
+
+  // Calculate step widths (each month gets equal width, but leave space for future months)
+  const maxMonthsToShow = 12; // Show whole year (12 months)
+  const stepWidth = availableWidth / maxMonthsToShow;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart3 className="h-4 w-4 text-blue-400" />
+        <h3 className="text-sm font-medium text-gray-300">Průběh měsíčních kilometrů</h3>
+      </div>
+      <div 
+        ref={chartRef}
+        className="relative bg-gray-750 rounded-lg p-4 border border-gray-700"
+        style={{ height: chartHeight }}
+      >
+        <svg
+          width="100%"
+          height="100%"
+          className="absolute inset-0"
+          style={{ width: chartWidth, height: chartHeight }}
+        >
+          {/* Limit line */}
+          <line
+            x1={padding}
+            y1={padding + availableHeight - ((1750 - minKm) / range) * availableHeight}
+            x2={padding + availableWidth}
+            y2={padding + availableHeight - ((1750 - minKm) / range) * availableHeight}
+            stroke="#EF4444"
+            strokeWidth="2"
+            strokeDasharray="4,4"
+          />
+
+          {/* Step chart rectangles */}
+          {validStats.map((month, index) => {
+            const x = padding + index * stepWidth;
+            const y = padding + availableHeight - ((month.km - minKm) / range) * availableHeight;
+            const rectHeight = availableHeight - (y - padding);
+            
+            return (
+              <g key={index}>
+                {/* Area fill */}
+                <rect
+                  x={x}
+                  y={y}
+                  width={stepWidth}
+                  height={rectHeight}
+                  fill={month.over ? "#EF4444" : "#10B981"}
+                  opacity="0.3"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={(e) => {
+                    setHoveredMonth(month.key);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const chartRect = chartRef.current?.getBoundingClientRect();
+                    if (chartRect) {
+                      setTooltipData({
+                        month: getMonthNameCz(month.start),
+                        km: month.km,
+                        diff: month.diff,
+                        over: month.over,
+                        x: rect.left - chartRect.left + rect.width / 2,
+                        y: rect.top - chartRect.top - 10
+                      });
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredMonth(null);
+                    setTooltipData(null);
+                  }}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const chartRect = chartRef.current?.getBoundingClientRect();
+                    if (chartRect) {
+                      setTooltipData({
+                        month: getMonthNameCz(month.start),
+                        km: month.km,
+                        diff: month.diff,
+                        over: month.over,
+                        x: rect.left - chartRect.left + rect.width / 2,
+                        y: rect.top - chartRect.top - 10
+                      });
+                    }
+                    // Hide tooltip after 3 seconds on touch devices
+                    setTimeout(() => setTooltipData(null), 3000);
+                  }}
+                />
+                {/* Border */}
+                <rect
+                  x={x}
+                  y={y}
+                  width={stepWidth}
+                  height={rectHeight}
+                  fill="none"
+                  stroke={month.over ? "#EF4444" : "#10B981"}
+                  strokeWidth="2"
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={(e) => {
+                    setHoveredMonth(month.key);
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const chartRect = chartRef.current?.getBoundingClientRect();
+                    if (chartRect) {
+                      setTooltipData({
+                        month: getMonthNameCz(month.start),
+                        km: month.km,
+                        diff: month.diff,
+                        over: month.over,
+                        x: rect.left - chartRect.left + rect.width / 2,
+                        y: rect.top - chartRect.top - 10
+                      });
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredMonth(null);
+                    setTooltipData(null);
+                  }}
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const chartRect = chartRef.current?.getBoundingClientRect();
+                    if (chartRect) {
+                      setTooltipData({
+                        month: getMonthNameCz(month.start),
+                        km: month.km,
+                        diff: month.diff,
+                        over: month.over,
+                        x: rect.left - chartRect.left + rect.width / 2,
+                        y: rect.top - chartRect.top - 10
+                      });
+                    }
+                    // Hide tooltip after 3 seconds on touch devices
+                    setTimeout(() => setTooltipData(null), 3000);
+                  }}
+                />
+                
+
+
+              </g>
+            );
+          })}
+
+          {/* Gradients */}
+          <defs>
+            <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.1" />
+            </linearGradient>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#3B82F6" />
+              <stop offset="100%" stopColor="#60A5FA" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        {/* Tooltip */}
+        {tooltipData && (
+          <div
+            className="absolute z-10 bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm shadow-lg pointer-events-none"
+            style={{
+              left: `${tooltipData.x}px`,
+              top: `${tooltipData.y}px`,
+              transform: 'translateX(-50%) translateY(-100%)'
+            }}
+          >
+            <div className="font-semibold text-white mb-1">{tooltipData.month}</div>
+            <div className="text-gray-300">
+              <div>{tooltipData.km.toLocaleString()} km</div>
+              <div className={tooltipData.over ? 'text-red-400' : 'text-green-400'}>
+                {tooltipData.over 
+                  ? `+${tooltipData.diff.toLocaleString()} km` 
+                  : `-${Math.abs(tooltipData.diff).toLocaleString()} km`
+                }
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 const KilometersTracker: React.FC = () => {
   const [records, setRecords] = useState<MileageRecord[]>([]);
@@ -78,41 +475,16 @@ const KilometersTracker: React.FC = () => {
     setLoginPassword('');
   };
 
-  // Načtení dat ze serveru při spuštění
+  // Načtení dat při spuštění
   useEffect(() => {
     const loadRecords = async () => {
       try {
         const records = await apiService.getRecords();
-        if (records.length === 0 && window.location.hostname === 'localhost') {
-          const demoRecords = [
-            { id: 1, date: '2025-07-11', totalKm: 100, createdAt: '2025-07-11T10:00:00Z' },
-            { id: 2, date: '2025-07-31', totalKm: 300, createdAt: '2025-07-31T10:00:00Z' },
-            { id: 3, date: '2025-08-15', totalKm: 600, createdAt: '2025-08-15T10:00:00Z' }
-          ];
-          setRecords(demoRecords);
-        } else {
-          setRecords(records);
-        }
+        setRecords(records);
       } catch (error) {
-        if (window.location.hostname === 'localhost') {
-          const demoRecords = [
-            { id: 1, date: '2025-07-11', totalKm: 100, createdAt: '2025-07-11T10:00:00Z' },
-            { id: 2, date: '2025-07-31', totalKm: 300, createdAt: '2025-07-31T10:00:00Z' },
-            { id: 3, date: '2025-08-15', totalKm: 600, createdAt: '2025-08-15T10:00:00Z' }
-          ];
-          setRecords(demoRecords);
-        } else {
-          // Fallback to localStorage if server is not available and not localhost
-          const savedRecords = localStorage.getItem('mileageRecords');
-          if (savedRecords) {
-            try {
-              const parsed = JSON.parse(savedRecords);
-              setRecords(parsed);
-            } catch (localError) {
-              console.error('Error parsing saved records:', localError);
-            }
-          }
-        }
+        console.error('Error loading records:', error);
+        // Fallback to empty array if there's an error
+        setRecords([]);
       }
     };
 
@@ -165,7 +537,14 @@ const KilometersTracker: React.FC = () => {
     : null;
 
   // Měsíce od začátku leasingu do posledního záznamu
-  const months = [];
+  interface MonthInfo {
+    key: string;
+    name: string;
+    start: Date;
+    end: Date;
+  }
+  
+  const months: MonthInfo[] = [];
   if (lastRecordDate) {
     let d = new Date(leaseStartDate.getFullYear(), leaseStartDate.getMonth(), 1);
     const end = new Date(lastRecordDate.getFullYear(), lastRecordDate.getMonth(), 1);
@@ -195,9 +574,38 @@ const KilometersTracker: React.FC = () => {
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     let km = 0;
-    if (monthRecords.length > 0) {
-      km = monthRecords[monthRecords.length - 1].totalKm;
+    let previousMonthLastKm = 0;
+
+    // Najdi poslední záznam z předchozího měsíce
+    if (i > 0) {
+      const previousMonth = months[i - 1];
+      const previousMonthRecords = records
+        .filter(r => {
+          const d = new Date(r.date);
+          return (
+            d.getFullYear() === previousMonth.start.getFullYear() &&
+            d.getMonth() === previousMonth.start.getMonth()
+          );
+        })
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      if (previousMonthRecords.length > 0) {
+        previousMonthLastKm = previousMonthRecords[previousMonthRecords.length - 1].totalKm;
+      }
     }
+
+    // Spočítej skutečné kilometry za tento měsíc
+    if (monthRecords.length > 0) {
+      const currentMonthLastKm = monthRecords[monthRecords.length - 1].totalKm;
+      if (i === 0) {
+        // Pro první měsíc použij celkový stav jako měsíční spotřebu
+        // (předpokládáme, že auto začalo s 0 km na začátku leasingu)
+        km = currentMonthLastKm;
+      } else {
+        km = currentMonthLastKm - previousMonthLastKm;
+      }
+    }
+
     const diff = km - MONTHLY_LIMIT;
     return { ...month, km, diff, over: diff > 0, first: monthRecords[0] || null, last: monthRecords[monthRecords.length - 1] || null };
   });
@@ -489,16 +897,34 @@ const KilometersTracker: React.FC = () => {
         {/* Měsíční přehled */}
         <div className="bg-gray-800 rounded-lg p-6">
           <h2 className="text-lg font-semibold mb-4">Měsíční přehled</h2>
+          
+          {/* Chart */}
+          <MonthlyChart monthlyStats={monthlyStats} />
+          
+          {/* Legend */}
+          <div className="flex justify-end items-center gap-4 text-xs -mt-4 mb-4">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-blue-500"></div>
+              <span className="text-gray-400">Skutečné km</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-0.5 bg-red-500 border-dashed"></div>
+              <span className="text-gray-400">Limit 1,750 km</span>
+            </div>
+          </div>
+          
+
+          
           <div className="space-y-2">
-            {monthlyStats.map((m) => (
-              <div key={m.key} className="flex items-center justify-between gap-3">
-                <div className="w-16 text-sm text-gray-300 text-left">{getMonthLabelShort(m.start)}</div>
-                <div className="flex-1 flex flex-row items-center justify-end gap-6">
-                  <span className="text-sm font-semibold">
-                    <span className={m.over ? 'text-red-400' : 'text-green-400'}>{m.km.toLocaleString()}</span>
-                    <span className="text-white"> / 1,750 km</span>
-                  </span>
-                  <span className={`text-sm font-semibold ${m.over ? 'text-red-400' : 'text-green-400'}`}>{m.diff > 0 ? `- ${m.diff.toLocaleString()} km` : `+ ${Math.abs(m.diff).toLocaleString()} km`}</span>
+            {[...monthlyStats].reverse().map((m) => (
+              <div key={m.key} className="grid grid-cols-3 gap-4 items-center">
+                <div className="text-sm text-gray-300">{getMonthLabelShort(m.start)}</div>
+                <div className="text-sm font-semibold text-right whitespace-nowrap">
+                  <span className={m.over ? 'text-red-400' : 'text-green-400'}>{m.km.toLocaleString()}</span>
+                  <span className="text-white"> / 1,750 km</span>
+                </div>
+                <div className={`text-sm font-semibold text-right ${m.over ? 'text-red-400' : 'text-green-400'}`}>
+                  {m.diff > 0 ? `- ${m.diff.toLocaleString()} km` : `+ ${Math.abs(m.diff).toLocaleString()} km`}
                 </div>
               </div>
             ))}
@@ -506,41 +932,12 @@ const KilometersTracker: React.FC = () => {
         </div>
 
         {/* Historie záznamů */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <h2 className="text-lg font-semibold mb-4">Historie záznamů</h2>
-          {sortedRecords.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">
-              <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>Zatím žádné záznamy</p>
-              <p className="text-sm">Přidejte první záznam tlačítkem +</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {sortedRecords.map((record) => (
-                <div key={record.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-lg">
-                  <div>
-                    <div className="font-medium">{record.totalKm.toLocaleString()} km</div>
-                    <div className="text-sm text-gray-400">{formatDate(record.date)}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEdit(record)}
-                      className="p-2 text-blue-400 hover:bg-gray-600 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(record.id)}
-                      className="p-2 text-red-400 hover:bg-gray-600 rounded-lg transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <RecordHistory
+          records={records}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          monthlyStats={monthlyStats}
+        />
       </div>
     </div>
   );

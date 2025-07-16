@@ -40,3 +40,12 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* Custom gray color variations for the accordion */
+.bg-gray-750 {
+  background-color: #374151;
+}
+
+.bg-gray-650 {
+  background-color: #4b5563;
+}
