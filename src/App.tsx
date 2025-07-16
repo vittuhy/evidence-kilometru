@@ -225,10 +225,15 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
       }
     };
 
-    updateChartWidth();
+    // Use a small delay to ensure the DOM is ready
+    const timer = setTimeout(updateChartWidth, 100);
     window.addEventListener('resize', updateChartWidth);
-    return () => window.removeEventListener('resize', updateChartWidth);
-  }, []);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateChartWidth);
+    };
+  }, [monthlyStats]); // Re-run when monthlyStats changes
 
   if (monthlyStats.length === 0) return null;
 
@@ -263,10 +268,13 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
       </div>
     );
   }
-  const availableWidth = chartWidth - padding * 2;
+  
+  // Use a fallback width if chartWidth is not available yet
+  const effectiveWidth = chartWidth || 400; // Fallback to 400px if not calculated yet
+  const availableWidth = effectiveWidth - padding * 2;
   const availableHeight = chartHeight - padding * 2;
 
-  // Don't render chart if width is not available yet
+  // Show loading state only if we really don't have any width
   if (chartWidth === 0) {
     return (
       <div className="mb-6">
@@ -306,7 +314,7 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
           width="100%"
           height="100%"
           className="absolute inset-0"
-          style={{ width: chartWidth, height: chartHeight }}
+          style={{ width: effectiveWidth, height: chartHeight }}
         >
           {/* Limit line */}
           <line
