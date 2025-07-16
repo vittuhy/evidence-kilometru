@@ -953,13 +953,13 @@ const KilometersTracker: React.FC = () => {
           
           <div className="space-y-2">
             {[...monthlyStats].reverse().map((m) => (
-              <div key={m.key} className="grid grid-cols-3 gap-4 items-center">
-                <div className="text-sm text-gray-300">{getMonthLabelShort(m.start)}</div>
-                <div className="text-sm font-semibold text-right whitespace-nowrap">
+              <div key={m.key} className="flex justify-between items-center">
+                <div className="text-sm text-gray-300 flex-1">{getMonthLabelShort(m.start)}</div>
+                <div className="text-sm font-semibold text-right whitespace-nowrap flex-1">
                   <span className={m.over ? 'text-red-400' : 'text-green-400'}>{m.km.toLocaleString()}</span>
                   <span className="text-white"> / 1,750 km</span>
                 </div>
-                <div className={`text-sm font-semibold text-right ${m.over ? 'text-red-400' : 'text-green-400'}`}>
+                <div className={`text-sm font-semibold text-right ${m.over ? 'text-red-400' : 'text-green-400'} flex-1`}>
                   {m.diff > 0 ? `- ${m.diff.toLocaleString()} km` : `+ ${Math.abs(m.diff).toLocaleString()} km`}
                 </div>
               </div>
