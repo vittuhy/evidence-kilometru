@@ -380,10 +380,10 @@ const MonthlyChart: React.FC<MonthlyChartProps> = ({ monthlyStats }) => {
                 />
                 {/* Border */}
                 <rect
-                  x={x}
-                  y={y}
-                  width={stepWidth}
-                  height={rectHeight}
+                  x={x + 1}
+                  y={y + 1}
+                  width={stepWidth - 2}
+                  height={rectHeight - 2}
                   fill="none"
                   stroke={month.over ? "#EF4444" : "#10B981"}
                   strokeWidth="2"
